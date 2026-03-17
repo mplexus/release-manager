@@ -11,7 +11,5 @@ public interface ServiceReleaseRepository extends JpaRepository<ServiceRelease, 
 
     List<ServiceRelease> findBySystemReleaseVersion(Long systemReleaseVersion);
 
-    ServiceRelease findOneByNameAndVersion(String serviceName, Long version);
-
-    ServiceRelease findOneByName(String serviceName);
+    ServiceRelease findFirstByNameEqualsOrderBySystemReleaseDesc(String serviceName);
 }

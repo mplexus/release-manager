@@ -28,7 +28,7 @@ public class ReleaseServiceImpl implements ReleaseService{
 
     public Long addServiceRelease(ServiceReleaseDto serviceReleaseDto)
     {
-        ServiceRelease serviceRelease = serviceRepository.findOneByName(serviceReleaseDto.getName());
+        ServiceRelease serviceRelease = serviceRepository.findFirstByNameEqualsOrderBySystemReleaseDesc(serviceReleaseDto.getName());
 
         if(serviceRelease != null)
         {
@@ -45,19 +45,25 @@ public class ReleaseServiceImpl implements ReleaseService{
                 newSystemRelease.setVersion(systemRelease.getVersion() + 1L);
                 systemRepository.save(newSystemRelease);
 
-                updateExistingServiceReleases(systemRelease, newSystemRelease);
+                // migrate old service releases except the new one, to the new system release
+                migrateServiceReleases(systemRelease, newSystemRelease, serviceRelease);
 
-                return systemRelease.getVersion();
+                ServiceRelease newServiceRelease = new ServiceRelease();
+                newServiceRelease.setName(serviceRelease.getName());
+                newServiceRelease.setVersion(serviceReleaseDto.getVersion());
+                newServiceRelease.setSystemRelease(newSystemRelease);
+                serviceRepository.save(newServiceRelease);
+
+                return newSystemRelease.getVersion();
             }
         }
         else {
             // new service release, create new system release
-
             Optional<SystemRelease> optionalSystemRelease = systemRepository.findFirstByOrderByIdDesc();
             Long newSystemVersion = 1L;
             if (optionalSystemRelease.isPresent())
             {
-                newSystemVersion += 1L;
+                newSystemVersion = optionalSystemRelease.get().getId() + 1L;
             }
 
             SystemRelease newSystemRelease = new SystemRelease();
@@ -72,17 +78,22 @@ public class ReleaseServiceImpl implements ReleaseService{
             serviceRepository.save(newServiceRelease);
 
             if (optionalSystemRelease.isPresent()) {
-                updateExistingServiceReleases(optionalSystemRelease.get(), newSystemRelease);
+                // migrate old service releases except the new one, to the new system release
+                migrateServiceReleases(optionalSystemRelease.get(), newSystemRelease, newServiceRelease);
             }
 
             return newSystemRelease.getVersion();
         }
     }
 
-    private void updateExistingServiceReleases(SystemRelease oldSystemRelease,SystemRelease newSystemRelease)
+    private void migrateServiceReleases(SystemRelease oldSystemRelease, SystemRelease newSystemRelease, ServiceRelease excludedServiceRelease)
     {
         List<ServiceRelease> serviceReleases = serviceRepository.findBySystemReleaseVersion(oldSystemRelease.getVersion());
         for (ServiceRelease release : serviceReleases) {
+            if (release == excludedServiceRelease)
+            {
+                continue;
+            }
             ServiceRelease newServiceRelease = new ServiceRelease();
             newServiceRelease.setName(release.getName());
             newServiceRelease.setVersion(release.getVersion());
