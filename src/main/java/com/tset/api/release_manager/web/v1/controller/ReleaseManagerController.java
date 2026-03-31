@@ -30,7 +30,7 @@ public class ReleaseManagerController {
         return ResponseEntity.ok(releaseService.getServiceReleasesBySystemVersion(systemVersion));
     }
 
-    @PostMapping("/depploy")
+    @PostMapping("/deploy")
     public ResponseEntity<Long> addService(
             @RequestBody ServiceReleaseDto serviceRelease) {
 
